@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local and generated files
+.env
+.env.*
+!.env.example
+*.swp
+*.swo
+dist/
+*.zip
+
+# Commander runtime state
+.codex/commander/
