@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Commander"
+  short_description: "让强模型负责规划审查、Luna执行，并用独立模型完成客观验收"
+  default_prompt: "使用 $codex-commander 按 Astra/Sol 指挥、Luna 执行、fresh-context 验收的流程完成这个复杂任务。"
