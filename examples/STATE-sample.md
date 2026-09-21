@@ -1,11 +1,22 @@
 # Customer Order Import
 
 Status: implementing
+Run Identity: thread-example-002
 Spec Version: 2
 Mode: Standard
 Current phase: 3
 Current gate: vertical-slice
 Current iteration: 1
+
+## Model Selection
+
+Confirmed by user for this run: yes
+
+| Role | Model | Effort | Usage |
+|---|---|---|---|
+| Commander | current task model | current | plan and acceptance |
+| Researcher / Maker | `gpt-5.6-luna` | `max` | one vertical-slice Maker; no Researcher |
+| Verifier | none | n/a | Commander verification |
 
 ## Goal
 
@@ -46,8 +57,10 @@ Current iteration: 1
 ## Delivery Agreement
 
 - Engineering depth: Maintainable
-- Team route: one Maker, Commander verification
+- Team route: one `gpt-5.6-luna` `max` Maker, Commander verification
 - First useful slice target: about 20 minutes
+- First useful slice tool budget: about 40 calls
+- Context compaction budget before first slice: 1 checkpoint; a second is a stop condition
 - Maker retry budget: 1, only with a changed strategy
 - Stall threshold: two unchanged waits or about 10 minutes
 

@@ -11,7 +11,8 @@ Expected:
 - 选择 Standard，不因跨两个仓库自动升级 Strict。
 - 先读取参考实现并确认字段、数据流和错误结果。
 - 不经确认不得新增批次表、业务唯一性或容量限制。
-- 一个 Maker 完成纵向路径，Commander 做针对性复核。
+- 不创建 Researcher；一个 `gpt-5.6-luna` `max` Maker 完成纵向路径，Commander 做针对性复核。
+- 首个纵向路径前达到约 40 次工具调用或上下文压缩时，必须停止探索并交付切片或报告 blocker。
 
 ## 2. 支付回调并发修复
 
@@ -52,3 +53,25 @@ Expected:
 - Commander 停止等待并检查真实工作区。
 - Standard 只允许一次具有不同策略的重派；否则 Commander 接管或报告 blocker。
 - 不用轮询、重复研究或增加代理伪造进度。
+
+## 6. 同名旧状态文件
+
+新任务发现 `.codex/commander/<task-slug>/STATE.md` 属于另一个 thread 或已结束运行。
+
+Expected:
+
+- 保留旧状态不动，创建带 short run id 的新目录。
+- 新状态记录当前 Run Identity、Spec Version 和模式。
+- 不从旧状态继承未确认的 DERIVED 要求、模型分工或 gate 状态。
+
+## 7. 每次运行选择模型
+
+用户显式调用 `$codex-commander`，当前环境提供多个 Commander、Maker 和 Verifier 模型。
+
+Expected:
+
+- 确定模式后一次性询问本次实际角色的模型和推理强度，不继承上次选择。
+- 推荐组合排在第一项，同时允许逐角色自定义。
+- `gpt-5.6-luna` 只提供 `max`。
+- 用户选择的 Commander 与当前任务不同时，说明需要新任务并等待明确授权。
+- 用户回答前只做只读预检，不写产品文件、不派发实现。

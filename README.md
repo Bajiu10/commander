@@ -16,10 +16,14 @@
 | Mode | Typical use | Default route |
 |---|---|---|
 | Fast | 明确的小功能和集中修改 | Commander 直接实现与自检 |
-| Standard | 跨模块或跨仓库，但边界清楚 | 至多一个 Researcher、一个 Maker，按风险复核 |
+| Standard | 跨模块或跨仓库，但边界清楚 | 一个 `gpt-5.6-luna max` Maker；具体未知项阻塞时才加 Researcher |
 | Strict | 支付、核心权限、生产迁移、并发状态机或明确独立验收 | 有界研究、Maker、fresh-context Verifier |
 
-模型、工程深度和团队规模分别选择。Strict 默认使用 Astra high 指挥、Luna max 执行、Sol max 验证；其他模式使用满足任务的最低有效推理强度。
+模型、工程深度和团队规模分别选择。所有 Luna Researcher / Maker 固定使用 `gpt-5.6-luna max`；Commander 首选 Astra high，Verifier 默认 Sol high，并可在 Strict 中提升到 max。
+
+每次运行都会在模式确定后询问用户本次 Commander、Researcher / Maker 和 Verifier 的模型选择，不沿用历史配置。推荐组合只作为首选项，用户可以逐角色自定义；当前任务无法切换 Commander 模型时，只有明确授权后才会创建新任务。
+
+Standard 在首个纵向路径前有约 40 次工具调用和一次上下文压缩的检查点预算；到达预算仍没有跨必要边界的可运行结果时，必须停止探索、缩小范围或报告 blocker。同名旧状态文件不得复用，新的运行必须记录独立 Run Identity。
 
 ## 安装
 
