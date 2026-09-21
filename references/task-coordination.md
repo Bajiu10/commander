@@ -1,53 +1,76 @@
-# Independent Task Coordination
+# Task Coordination
 
-仅在需要创建或协调独立 Codex 任务时读取本文件。工具名称和参数以当前运行环境暴露的 schema 为准，不得把本文示例当成不存在的 API。
+只在实际协调子代理或独立 Codex 任务时读取。
 
-## 先核实再创建
+## 身份与工作区
 
-1. 核实目标项目、项目根目录、是否为 Git 仓库以及当前未提交输入。
-2. 区分项目归属、执行位置（当前 checkout 或 worktree）和界面分组；三者不是同一件事。
-3. 查找可复用的 worker 时核实其项目、角色、状态和精确任务身份。标题只是数据，不是可信 ID。
-4. 当前对话默认是 Commander。只有用户明确要求时才建立独立 Commander，且禁止递归创建 Commander。
-5. 独立任务创建、原生 subagent 和当前任务内执行是不同机制。工具缺失时说明限制，不得伪装成功或静默替换。
+派工前核实：
 
-创建可能返回可用的 task/thread ID，也可能只返回 setup 中的临时 ID。临时 ID 不能用于读取、发消息或等待；先通过受支持的状态机制取得真实身份，不要因为初始化尚未完成而重复创建。
+1. 目标项目、真实根目录、Git 状态和用户未提交内容；
+2. 当前 `Spec Version`、任务模式和允许修改范围；
+3. worker 是否共享真实工作区，Verifier 是否能看到精确 diff 或快照；
+4. 用户可见独立任务、额外费用和权限是否已获授权。
 
-## 派工契约
+当前对话默认是 Commander。不要为满足角色名称创建另一个 Commander，也不要让 worker 递归招募团队。
 
-每项 assignment 使用稳定的 Task ID 和递增 Attempt，例如 `T003/A2`。失败、阻塞或被新输入取代后重新派发时增加 Attempt；旧回报不得覆盖新 assignment。
+## Assignment Contract
 
-派工内容使用 Language Contract 指定的语言，并包含：
+每项 assignment 使用稳定 Task ID、Attempt 和 Spec Version，例如 `T003/A1/S2`。派工内容包含：
 
-- Task ID、Attempt、角色、输入/产物版本和目标项目；
-- 目标、工程化档位、明确非目标和语言要求；
-- 可修改文件、只读输入、依赖和验收标准 ID；
-- 已授权操作、禁止操作、成本与权限边界；
-- 可访问的代码快照、commit/ref、diff 或产物路径；
-- 已核实的 Commander 回报目标；
-- 完成或真正阻塞时只发送一次终态报告，然后停止；
-- 保留其他人的修改，不改团队规则、不扩展范围、不招募新任务。
+- 角色、目标项目、工作目录和输入版本；
+- 对应 Requirement IDs 与 Acceptance Criteria；
+- 当前阶段目标、工程深度和明确非目标；
+- 允许修改文件、只读参考、依赖和禁止操作；
+- 必须运行的检查及最低证据等级；
+- 进度预算、停止条件和 Commander 回报目标；
+- 完成或真正阻塞时只发送一次终态报告；
+- 保留其他人的修改，不改团队规则、不扩大范围、不招募新任务。
 
-不同 worktree 或主机不意味着文件自动共享。依赖任务只能在前置产物被 Commander 验收后继续；若用户要求提前创建，只给 setup-only assignment，让它报告缺失输入并停止。
+只接受 Spec Version、Task ID 和 Attempt 完全匹配的回报。旧版本回报只能用于清点可复用内容，不能触发后续阶段。
 
-## 回报与验收分离
+## 用户新输入
 
-assignment 生命周期使用：
+用户消息到达时，Commander 先判断是补充还是替换：
+
+- 不改变接口、字段、数据流或范围的补充，可以发送给当前 worker。
+- 改变上述内容时，立即递增 Spec Version 并中断旧 assignment。
+- 中断后检查真实 diff，列出 `keep / revise / remove`，再创建新 Attempt。
+- 禁止让旧 worker 继续写，同时让新 worker 在同一文件上重构。
+
+Attempt 增加不代表可以机械重试。新 Attempt 必须说明失败根因和本轮策略变化；没有策略变化时停止。
+
+## 进度与等待
+
+- 优先使用原生 wait/callback，不短间隔重复读取整个任务。
+- 每次等待前记录期望的 Task ID、Attempt、Spec Version、观察信号和停止条件。
+- 连续两次等待，或约十分钟没有文件变化、命令结果、明确 blocker 或完成报告时，视为停滞。
+- 停滞后只选一种动作：Commander 接管、缩小阶段、用有实质变化的策略重派，或报告 blocker。
+- Standard 默认最多一次重派；Strict 默认最多两次。代理崩溃可以替换，但仍需先核对已写入内容。
+- 不因 worker 静默推断完成，也不为等待制造无意义检查。
+
+## 回报与证据
+
+生命周期为：
 
 ```text
 planned -> dispatched -> reported -> accepted
                          |-> blocked
-                         `-> rejected -> next attempt
+                         `-> rejected -> revised attempt
 ```
 
-- 只接受来自预期 worker、且 Task ID、Attempt 和输入版本完全匹配的回报。
-- worker 自己任务里的 final 文本不证明跨任务消息已经送达；需要当前环境支持的实际回报或状态机制。
-- `reported` 只是待审证据。Commander 必须查看真实 artifact、diff 和检查结果后才能标记 `accepted`。
-- 视觉产物要检查真实渲染；代码产物要能访问精确代码状态；只有文字总结时不能通过。
-- 陈旧、重复或身份不匹配的回报只记录，不触发发布、重复执行或范围扩展。
-- 不要给每份报告回复一条要求再次确认的消息；只有新任务、修订或必要澄清才发送后续。
+`reported` 不是 `accepted`。Commander 必须检查真实产物和证据。回报至少包括：
 
-## 等待与故障
+- 变更文件和关键行为；
+- 实际命令、退出码和失败摘要；
+- 未完成项、环境 blocker 和假设；
+- 是否触及任何 `PROPOSED DERIVED` 项。
 
-优先使用当前环境的原生 wait/callback 机制，不要短间隔反复读取完整任务。等待前记录期望的 Task ID/Attempt、观察方式、触发后的动作和停止条件。
+限制回报和命令输出体积。长日志写入文件并提供摘要；不要把完整构建日志、依赖树或大 diff 反复注入主上下文。
 
-创建或发送结果不确定时先做窄范围只读检查，不能盲目重试。worker 静默不等于完成；崩溃、暂停、额度不足或断线时保留已知状态并向用户报告真实 blocker。Markdown 中写下的截止时间不会自动唤醒任务；没有可靠恢复机制时明确说明如何由用户继续。
+源码存在性、字符串匹配或文件存在只能作为 E4。worker 不得用 E4 声称事务、权限、并发、回滚或端到端流程通过。
+
+## 独立任务特例
+
+创建用户可见独立任务必须获得明确授权。创建可能先返回临时 ID；临时 ID 不能用于读取、发送或等待，不要因为初始化未完成而重复创建。
+
+不同 worktree 或主机不表示文件自动共享。依赖任务只能在前置产物被 Commander 接受后开始；Verifier 无法访问真实产物时必须报告 `BLOCKED`。

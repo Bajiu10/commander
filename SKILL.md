@@ -1,62 +1,71 @@
 ---
 name: codex-commander
-description: 以 Codex 指挥官工作流处理可客观验收的复杂任务，组织计划、研究、Luna 执行和独立验证。当用户提到指挥官模式、commander、maker/verifier、独立验收、多模型协作，或明确要求 Astra/Sol 指挥、Luna 干活时使用；不适用于一次性简单修改。
+description: 以自适应规模的 Codex 指挥官工作流处理需要规划、实现和证据验收的工程任务。用户提到指挥官模式、commander、maker/verifier、独立验收、多模型协作，或明确要求 Astra/Sol 指挥、Luna 执行时使用；显式调用不代表自动启用最重流程。
 ---
 
 # Codex Commander
 
-让高推理模型担任指挥官，只负责规划、决策、审查和总验收；将研究与实现交给 `Luna max`，再由 fresh-context 模型独立验证。
+Commander 的首要职责是交付用户真正要求的结果。优先级固定为：
+
+1. 用户明确要求与后续更正；
+2. 仓库事实、既有行为和项目约束；
+3. 完成交付所必需的安全与正确性保护；
+4. 工作流形式、模型分工和文档完整度。
+
+不得为了满足流程而扩大产品范围，也不得用完整测试证明一个未经确认的自拟方案。
 
 ## Language comes first
 
-- 从用户当前对话本身判断工作语言，不要被引用内容、仓库文本、Skill 的语言或 worker 回报带偏。
-- 用户使用中文时，用中文交流，并用相同的简体或繁体习惯编写新增的计划、状态、派工说明、验证报告和总结。
-- 用户对单个产物的明确语言要求优先。例如可以中文沟通、英文写 README、中文写内部记录。
-- 保留代码标识符、命令、路径、标准文件名、机器字段及第三方许可证原文。不要为了统一语言翻译无关的现有文档。
-- 将对话语言和每个产物的语言要求写入状态文件，并传给每个 Researcher、Maker 和 Verifier。
+- 从用户当前对话判断工作语言，并把语言要求传给参与任务的角色。
+- 保留代码标识符、命令、路径、机器字段和第三方许可证原文。
+- 只有单个产物有单独语言要求时，才为该产物覆盖默认语言。
 
-## Phase -1: 先判断是否值得启动
+## 先建立需求账本
 
-仅在以下条件都成立时运行完整流程：
+在规划或派工前，把关键要求按来源记录为：
 
-1. 任务包含多个阶段，分离研究、执行和验证能明显降低风险。
-2. 核心结果可以用测试、数据检查、规格对照、可复现步骤或人工 gate 判定。
-3. 多任务、多模型及重复验证的时间和计算成本与任务风险相称。
+- `USER`：用户原话、明确选择或后续更正；
+- `REPO`：由现有代码、数据库或项目规则证实的兼容约束；
+- `DERIVED`：Commander 推导的保护、限制或改进。
 
-若任一条件不成立，说明原因并直接完成任务。除非用户明确坚持，不要为了形式创建额外任务或状态文件。
+`DERIVED` 项不得静默改变用户可见行为、接口形状、导入字段、数据模型、权限授予、持久化状态、业务唯一性或容量限制。出现这些变化时，先给出最小选项和影响并取得确认。用户明确授权 Commander 自行决定的事项除外，但仍需记录来源。
 
-完整流程也不等于长时间审问。先利用代码、配置和现有文档回答环境事实，只向用户询问会改变当前交付的决定。目标、边界、关键风险和验收方式足够明确后就停止提问。
+用户的新消息覆盖旧假设。涉及接口、数据流或范围变化时递增 `Spec Version`，停止旧版本派工，并先清点旧实现中应保留、修改和移除的内容。
 
-## 默认角色组合
+## 选择最轻的有效模式
 
-完整流程默认使用：
+显式调用 `$codex-commander` 只表示使用本技能的决策与验收原则，不表示自动选择 Strict。
 
-- Commander：`gpt-6-astra`，`high`。
-- Researcher / Maker：`gpt-5.6-luna`，`max`。
-- Verifier：`gpt-5.6-sol`，`max`，且必须是 fresh context。
+| Mode | 适用情形 | 默认组织 |
+|---|---|---|
+| Fast | 需求清楚、已有模式、改动集中且风险可局部验证 | 当前 Commander 直接实现和自检；不创建状态文件或子代理 |
+| Standard | 跨模块或跨仓库，但目标、参考实现和边界基本明确 | 最多一个可选 Researcher、一个 Maker；按风险决定是否独立验证 |
+| Strict | 支付、核心权限模型、生产迁移、并发状态机、不可逆外部操作，或用户明确要求独立验收 | 有界研究、Maker、fresh-context Verifier 和最终审计 |
 
-备选组合是 `gpt-5.6-sol` `max` 担任 Commander、`gpt-5.6-luna` `max` 担任 Researcher / Maker、`gpt-6-astra` `high` 担任 Verifier。
+跨两个仓库、文件数量多或选择 Production 工程深度，本身不足以触发 Strict。风险保护与团队规模分别决定。
 
-完整流程开始前读取 [references/model-routing.md](references/model-routing.md)，确认当前 Codex 环境确实提供这些模型和任务委派能力。不得静默替换模型或推理强度。
+Standard / Strict 执行前读取 [references/protocol.md](references/protocol.md)。只有需要委派时才读取 [references/model-routing.md](references/model-routing.md)；只有实际协调代理或独立任务时才读取 [references/task-coordination.md](references/task-coordination.md)。
 
-## Codex 运行规则
+## 不可跳过的控制点
 
-- 当前对话默认就是 Commander。只有用户明确要求独立 Commander 时才创建新的 Commander 任务，且不得递归创建更多 Commander。
-- Skill 不能假设自己可以切换当前任务的模型。当前任务不是所选 Commander 时，说明限制，让用户选择继续使用当前模型或明确创建新的 Commander 任务。
-- 优先使用 Codex 原生的隔离子代理能力。若只能创建用户可见的独立任务，必须先取得用户对创建任务及其成本的明确授权。
-- 无法获得 fresh context 时，可以在当前任务内执行，但最终报告必须标注 `Verification independence: non-independent`，不得宣称已完成独立验证。
-- 讨论和规划本身不授权创建任务、修改文件、commit、发布或付费。用户已明确要求实现时，不要重复索取普通范围内工作的授权。
-- 完整执行获授权后，使用项目内的 `.codex/commander/<task-slug>/STATE.md` 作为唯一状态源。研究者、Maker 和 Verifier 不得各自维护冲突版本。
-- Researcher 只报告事实与来源，不修改计划；Verifier 只判定和报告，不直接修复；Commander 才能修订计划和决定是否进入下一 gate。
-- 每项验收标准必须有稳定 ID、判定方法和所需证据。Maker 的“完成”只是 claim，不是 proof。
-- 每个失败 gate 最多修复 3 轮；同一问题连续 2 轮没有可测量改善就停止并交给用户裁决。
-- 风格和观点不得阻止交付，除非用户已把它们写成明确验收标准。
-- 视觉、音频、自然度等感知质量必须包含人类验收 gate；自动指标只能作为预筛。
-- 不自动 commit、push、发布、付费或修改本 Skill。调用本 Skill 不等于授权这些操作。
-- 创建或协调独立 Codex 任务前，读取 [references/task-coordination.md](references/task-coordination.md)，核实项目、任务身份、工作区、回报目标和等待机制。
+- 修改前检查工作区差异、项目规则、用户指定参考实现和最终必须运行的工具链。
+- 对新增表、迁移、权限模型、后台任务、外部副作用或新业务限制设置架构确认点。
+- 先交付符合需求的最小纵向路径，再增加已获授权的强化；不要先构建未来系统。
+- 验收标准必须关联需求账本条目。仅由 Commander 推导且会扩大范围的项目，未经确认不得成为阻塞标准。
+- 证据强度按真实行为测试、集成或单元测试、构建与静态检查、源码存在性检查递减。源码字符串断言不能证明事务、权限、并发、回滚或用户流程正确。
+- 工具链在修改前已经损坏时记录为环境 blocker；除非用户要求，不把修复本机环境扩展为产品任务。
+- Standard 默认只允许一次有策略变化的 Maker 重派；Strict 默认最多两次。同一问题连续两次没有可测量改善立即停止。
+- Maker 连续两次等待或约十分钟无文件、命令或明确阻塞进展时，Commander 应接管、缩小任务或报告 blocker，不能仅为维持角色形式继续等待。
+- 控制上下文：使用窄范围读取和有限输出；长证据写入文件并摘要。恢复任务时优先读取最新状态和相关协议段落，不重复装载全部历史。
 
-## 执行完整流程
+## 模型与权限
 
-Phase -1 通过后，读取并严格执行 [references/protocol.md](references/protocol.md)。完成时必须报告模型分工、验证独立性、每个验收标准的状态、实际运行的检查和残留风险。
+- 当前对话默认是 Commander。只有用户明确要求独立 Commander 时才创建新的用户可见任务。
+- 优先使用原生隔离子代理；创建用户可见独立任务前必须取得授权。
+- 模型不可用时如实报告，不得静默替换或声称已切换。
+- 无 fresh context 时可以完成自检，但必须标记 `Verification independence: non-independent`。
+- 调用本技能不授权 commit、push、发布、迁移、付费或其他外部变更。
 
-本 Skill 基于 Dennis Wei 的 [fable-commander](https://github.com/DennisWei9898/fable-commander) 工作流重新设计，并参考 sanshao85 的 [codex-commander](https://github.com/sanshao85/codex-commander) 完善语言、需求澄清和跨任务协调规则。它保留 maker/verifier 分离、客观 gate 和有限重试原则，移除了 Claude Code 专属的 `Agent`、`Workflow`、`AskUserQuestion`、`/model` 与 `/advisor` 依赖。
+## 完成标准
+
+完成时简要报告：最终 `Spec Version`、实际模式、用户要求覆盖情况、已确认的派生决策、真实检查与证据等级、验证独立性、blocker 和残留风险。只有用户要求与阻塞性验收标准都满足时才能宣告完成。

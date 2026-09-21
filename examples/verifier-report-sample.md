@@ -1,24 +1,32 @@
 # Verifier Report
 
-Verifier: `gpt-5.6-sol`, reasoning `max`
+Verifier: `gpt-5.6-sol`, reasoning `high`
 Context: fresh
-Task / Attempt: `T002/A1`
-Input version: `normalize-v1`
-Gate: P2 data normalization, round 1
-Language Contract: 简体中文报告，代码与 schema 标识符保持英文
+Task / Attempt / Spec: `T001/A2/S2`
+Mode: Standard
+Verification independence: independent
+
+## Scope Fidelity
+
+| Check | Result | Evidence |
+|---|---|---|
+| All USER requirements represented | PASS | R-01 through R-03 mapped to AC-01 and AC-02 |
+| No unconfirmed DERIVED behavior implemented | FAIL | Diff adds an import batch table although R-05 is PROPOSED |
+| Existing behavior and unrelated changes preserved | PASS | Scoped diff and working-tree comparison |
 
 ## Objective Results
 
-| ID | Result | Evidence |
-|---|---|---|
-| AC-02 | FAIL | 期望 23,832 行，实际 23,760 行；3 家已除牌公司缺少 72 行 |
-| AC-03 | PASS | 独立运行主键分组检查，最大计数为 1 |
-| AC-LANG | PASS | 报告使用简体中文；命令和 schema 字段名未翻译 |
+| ID | Result | Evidence level | Evidence |
+|---|---|---|---|
+| AC-01 | PASS | E1 | Browser request contains JSON rows and no multipart body |
+| AC-02 | BLOCKED | E4 only | Source contains `transaction` and `insertAll`, but no transaction behavior test ran |
+| AC-03 | PASS | E1 | Unauthorized customer integration case returns 404 and creates no row |
+| AC-04 | PASS | E3 | Frontend build and PHP lint exit 0 |
 
 ## Conclusion
 
-本轮 FAIL。仅将 AC-02 及证据退回 Maker 修复，AC-03 不需要重做。
+本轮 FAIL。先移除或确认未授权的批次表扩展；AC-02 需要 E1 集成证据，源码字符串检查不能升级为 PASS。
 
 ## Non-blocking Suggestions
 
-- 字段名 `rev` 与 `revenue` 可以统一。这是可读性建议，不影响 gate。
+- 可以在后续独立需求中评估重试幂等，不阻塞当前最小导入流程。

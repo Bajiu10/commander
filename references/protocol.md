@@ -1,173 +1,132 @@
 # Codex Commander Protocol
 
-## Phase 0: 有限澄清与 Plan v0
+本协议用于 Standard 和 Strict。Fast 只遵守 `SKILL.md` 的核心控制点。
 
-先读取项目中相关的 `AGENTS.md`、已有计划、配置和当前任务记录，确认真实项目根目录与已有工作。只检查与本任务有关的内容，不搜索无关对话、凭据或私人记录。
+## Phase 0: 工作区与环境预检
 
-进行有限度需求澄清：环境事实优先自己查；只询问会改变本次交付的决定。优先澄清当前用户、核心行为、非目标、运行条件、失败后果、时间/成本约束和验收方式。用户可以随时结束访谈；此时记录未解决风险，不要继续穷举未来功能。
+在写计划或代码前：
 
-为当前交付选择最低但足够的工程化档位，且不要把档位与代理数量或模型推理强度绑定：
+1. 读取相关 `AGENTS.md`、入口、调用链、模型、SQL、测试和用户指定的参考实现。
+2. 检查所有涉及仓库的工作区差异，保留用户已有修改。
+3. 找出最终必须运行的 lint、测试、构建和渲染命令，并用版本检查或最小命令验证真实运行时。
+4. 区分任务导致的失败与预存环境失败。预存环境失败记为 `BLOCKED`；除非用户要求，不升级依赖、重装工具链或清理现有依赖目录。
 
-| Level | 中文标签 | 本次交付含义 |
-|---|---|---|
-| Prototype | 轻量验证 | 跑通一个完整有用路径，保留必要的数据与安全保护，明确限制 |
-| Maintainable | 实用维护 | 适合持续使用和修改，有适量回归测试、错误处理和可复现说明 |
-| Production | 正式交付 | 满足真实用户所需的可靠性、安全、数据完整性、部署恢复和可观测性 |
+不要先写大量状态文档再发现参考实现或工具链不可用。预检只读取与任务有关的内容，并限制命令输出。
 
-不要因为选择较高档位就扩展功能，也不要因为用户要求简单就删除当前风险所需的保护。任务很小但生产环境重要时，仍可由单个 Maker 完成并做针对性复核。
+## Phase 1: Requirement Ledger 与 Spec Version
 
-讨论或仅制定方案时不要创建状态文件。用户已授权执行且 Phase -1 通过后，在项目中创建 `.codex/commander/<task-slug>/STATE.md`。`task-slug` 使用简短的小写连字符名称，并避免覆盖已有目录。
+建立简短需求账本：
 
-状态文件至少包含：
-
-```markdown
-# <Task name>
-
-Status: planning
-Current phase: 0
-Current gate: none
-Current iteration: 0
-
-## Goal
-## In Scope
-## Out of Scope
-## Assumptions
-## Known Unknowns
-
-## Language Contract
-- Conversation language:
-- Default document language:
-- Per-artifact overrides:
-
-## Delivery Agreement
-- Engineering depth: Prototype / Maintainable / Production
-- Team route: solo / delegated
-- Explicit non-goals:
-
-## Model Assignment
-- Commander:
-- Researcher / Maker:
-- Verifier:
-- Verification independence: pending
-
-## Acceptance Criteria
-| ID | Criterion | Verification method | Required evidence | Status |
+| Req ID | Source | Requirement | Proof | Status |
 |---|---|---|---|---|
-| AC-01 | ... | ... | ... | PENDING |
+| R-01 | USER / REPO / DERIVED | 可观察行为或约束 | 验证方式 | CONFIRMED / PROPOSED |
 
-## Phases and Gates
-| Phase | Deliverable | Gate | Status |
-|---|---|---|---|
+规则：
 
-## Decision Log
-## Iteration Log
-## Final Result
-```
+- `USER` 使用用户原始要求和后续更正，不用 Commander 的转述替代。
+- `REPO` 必须有文件、测试、数据库或文档证据。
+- `DERIVED` 写明理由和影响。若改变用户可见行为、接口、字段、数据模型、权限授予、持久化状态、业务唯一性或容量限制，状态保持 `PROPOSED`，确认前不得实现。
+- 用户明确要求 Commander 自行选择时，可以把选择记为 `CONFIRMED`，但必须说明选择依据。
 
-验收标准必须描述可观察结果。优先使用已有测试、构建、类型检查、静态分析、数据校验和可复现命令。将不明确但可安全推断的内容写入 `Assumptions`；只有会显著改变范围、成本、数据安全或外部行为的问题才暂停询问用户。
+对用户可见功能，写一个短行为契约：入口、输入、成功结果、失败结果和明确非目标。涉及模板或导入时，先列字段、必填性、示例值和数据流；涉及 UI 时，先说明用户操作顺序；涉及 API 时，给出最小请求和响应形状。
 
-如果新增用户可见文档或报告，把已约定的语言列为对应产物的验收条件。语言不匹配是交付要求失败，不是单纯风格意见；代码标识符、第三方许可证和用户明确排除的现有文档不受此 gate 影响。
+初始版本为 `Spec Version: 1`。用户改变接口、数据流、字段或范围时：
 
-## Phase 1: 确认角色与授权
+1. 递增版本；
+2. 立即停止旧版本派工；
+3. 清点旧 diff，标记保留、修改、移除；
+4. 更新需求账本和验收标准；
+5. 只基于新版本重新派工。
 
-按 [model-routing.md](model-routing.md) 检查模型和委派能力。需要独立 Codex 任务时，用一次简洁确认覆盖以下内容：
+沉默不是对架构扩展的确认。只询问会改变本次交付的决定，并把相关选项压缩到一次提问中。
 
-- 选择默认组合还是备选组合；
-- 是否允许为 Researcher / Maker 和 Verifier 创建独立任务；
-- 代码状态使用共享工作区、工作树还是明确 commit/ref 交接；
-- 是否允许为交接创建 checkpoint commit。
+## Phase 2: 模式、预算与 Plan
 
-若用户不授权独立任务，继续单任务模式并记录 `Verification independence: non-independent`。
+从 Fast、Standard、Strict 中选择最轻的有效模式，并记录理由。工程深度与团队规模分开决定；生产代码不自动意味着 Strict，多文件也不自动意味着多代理。
 
-组织方式只在 `solo`、复用已核实 worker、或用户明确授权的最小独立任务团队中选择。团队是手段，不是默认交付物；只有可独立验收的产物、上下文隔离或独立复核能抵消协调成本时才组队。
+Standard / Strict 使用紧凑状态文件 `.codex/commander/<task-slug>/STATE.md`。如果该目录会污染工作区且项目没有忽略规则，可使用任务外临时状态位置，并在最终报告中说明。状态至少包含：
 
-## Phase 2: Luna max 研究
+- 当前 `Spec Version`、模式和阶段；
+- Requirement Ledger；
+- 明确非目标和待确认的架构扩展；
+- 环境预检结果；
+- 进度预算和停止条件；
+- 验收标准及其 Req ID、证据等级；
+- 决策、迭代和最终结果。
 
-把 `Known Unknowns` 中会影响方案的条目交给一个或多个 `gpt-5.6-luna` `max` 研究任务。可以安全并行的只读问题并行处理。
+### 默认进度预算
 
-每个研究任务都必须包含：
+- Standard：研究最多一个；目标是在约 20 分钟内形成第一个可运行纵向路径；Maker 默认最多一次有策略变化的重派。
+- Strict：只并行真正独立的研究；Maker 默认最多两次有策略变化的重派。
+- Maker 连续两次等待或约十分钟没有文件、命令或明确 blocker 进展时，不再被动等待。Commander 应接管、缩小阶段或报告 blocker。
+- 环境故障、权限请求和用户输入等待不消耗实现重试，但必须停止相关工作，不能用反复探测制造进展假象。
 
-- 一个边界清晰的问题；
-- 可使用的数据源、代码路径与禁止触碰的范围；
-- 只返回事实、证据位置、置信度和未解决项；
-- 禁止修改计划与实现；
-- 查不到时明确报告未知，禁止猜测。
-- 对话语言、默认文档语言和该产物的语言覆盖规则。
+这些是防空转的默认上限，不是要求为了赶时间跳过数据安全。
 
-Commander 汇总研究，不让研究任务直接编辑 `STATE.md`。内容过长时写入同目录的 `RESEARCH.md` 并由状态文件链接。Commander 至少独立复核一项关键外部事实和一项关键代码假设（若适用）。
+### 验收标准与证据等级
 
-## Phase 3: Commander 定稿 Plan v1
+每个 AC 必须关联一个或多个 Req ID。未经确认的 `DERIVED` 项不得成为阻塞 AC。
 
-Commander 根据证据更新验收标准、阶段和风险：
+| Level | Evidence | Can prove |
+|---|---|---|
+| E1 | 真实端到端或集成行为、真实渲染、数据库事务场景 | 用户流程、系统协作、回滚和权限结果 |
+| E2 | 聚焦单元或组件测试，使用可信替身 | 纯逻辑、边界条件和错误处理 |
+| E3 | 构建、lint、类型检查、静态分析、diff 检查 | 可编译性、基本契约和静态缺陷 |
+| E4 | 源码字符串、文件存在性或人工代码结构检查 | 结构线索，不能单独证明行为正确 |
 
-1. 检查每个 Known Unknown 是否有答案；未回答的移入风险。
-2. 将每个 gate 改写成可独立重跑的 PASS / FAIL 判定。
-3. 明确每阶段允许修改的文件、依赖和外部系统。
-4. 将关键取舍写入 Decision Log。
+事务、权限隔离、并发幂等、回滚和外部副作用不能仅凭 E4 判 PASS。环境不足时可以 `BLOCKED`，不得用较弱证据伪装通过。
 
-可靠证据与用户目标冲突、必须扩大范围、需要付费或不可逆外部操作时，暂停并询问用户。其他情况按现有项目模式中最保守的方案继续。
+## Phase 3: 有界研究与最小纵向实现
 
-## Phase 4: Luna max Maker
+只研究会改变实现方案的未知项。用户给出参考实现时先读参考实现，再决定是否需要 Researcher。研究任务只返回事实、证据、置信度和未解决项，不修改代码或计划。
 
-一次只给 `gpt-5.6-luna` `max` Maker 一个阶段。Maker prompt 必须包含：
+实现规则：
 
-- 当前阶段目标和允许修改的范围；
-- 相关验收标准 ID；
-- 必须运行的检查；
-- 禁止操作和授权边界；
-- 返回变更摘要、命令结果、diff 或产物位置；
-- 遇到范围冲突、缺失权限或验收标准矛盾时立即停止。
-- 对话与产物语言要求，以及不得翻译的标识符和现有内容。
+1. 一个 Maker 负责一个可运行的纵向阶段，优先覆盖入口、核心数据流和结果反馈。
+2. 先按最新需求账本和现有项目模式实现，不提前增加新表、状态机、权限授予策略、抽象层或未确认限制。
+3. 必要的权限隔离、参数校验、事务和错误传播应复用现有模式；若现有模式不足且需要架构扩展，回到确认点。
+4. Maker 返回真实 diff、命令结果、未完成项和 blocker。Maker 的“完成”只是 claim。
+5. Commander 不与 Maker 重复实现。Maker 停滞达到预算后，Commander 可以接管剩余工作或缩小阶段。
 
-Maker 不得自行放宽验收标准，也不得仅凭自己的测试结果把 gate 标记为 PASS。阶段完成后，Commander 将实际变更和证据写入 Iteration Log。
+对 UI、模板、导入字段或其他容易误解的用户可见行为，在强化前做一次行为检查点：展示字段清单、请求样例、截图或可复现步骤。只有设计偏好或主观感知确实是交付目标时才要求用户人工 gate；普通管理页面不自动等待人工审美验收。
 
-若本 Skill 在一个已经被派工的 worker 任务中触发，worker 只执行当前有边界的 assignment 并回报 Commander；不得重新访谈用户、重写全局计划或招募团队，除非派工明确授权。
+## Phase 4: Verification
 
-## Phase 5: Fresh-context Verifier
+Verifier 或 Commander 复核时必须获得：
 
-使用角色组合中指定的 Verifier 创建全新上下文。只提供：
-
-- 用户原始目标；
-- `STATE.md` 与相关 `RESEARCH.md`；
-- Maker 的真实 diff、commit/ref 或产物路径；
+- 用户原始目标和所有改变范围的后续消息；
+- 最新 `Spec Version` 和 Requirement Ledger；
+- 相关项目规则与参考实现；
+- Maker 的真实 diff、产物或快照；
 - 可独立执行的验收命令。
 
-不要提供 Maker 的自我评价、推理过程或期望结论。
+不要提供 Maker 的自我评价或期望结论。Verifier 必须先做 Scope Fidelity，再做行为验收：
 
-Verifier 必须：
+1. 是否遗漏 `USER` 要求；
+2. 是否把未确认的 `DERIVED` 项实现成产品行为；
+3. 是否引入不必要的表、权限、限制、依赖或抽象；
+4. 是否保留现有行为和用户未提交内容；
+5. 每个 AC 的证据等级是否足够。
 
-1. 独立重跑适用检查，不复述 Maker 的输出。
-2. 对每个验收标准返回 `PASS`、`FAIL` 或 `BLOCKED`。
-3. 每项判定附命令、输出摘要、文件位置或可复现步骤。
-4. 将风格和观点建议单列为 non-blocking suggestions。
-5. 只报告，不修改实现。
-6. 对新增用户可见产物核对 Language Contract，但不翻译或重写既有无关内容。
+每项返回 `PASS`、`FAIL` 或 `BLOCKED`，附命令、输出摘要、文件位置或复现步骤。风格建议单列为 non-blocking。只报告、不修改实现。
 
-Verifier 报告写入同目录的 `VERIFICATION.md`，或由 Commander 原样记录后写入。无法看到真实产物时必须判 `BLOCKED`。
+## Phase 5: 修复、停滞与新输入
 
-失败后的控制规则：
-
-- 只把失败 ID、证据和允许修复范围交回 Luna max Maker。
-- 每个 gate 最多 3 轮。
-- 同一失败连续 2 轮没有可测量改善，立即停止空转。
-- 达到上限仍失败时保持 `FAIL`，不得用“最高分”“大部分通过”或主观判断放行。
-- 需要凭据、外部系统或用户感知判断时使用 `BLOCKED`，并给出最小下一步。
-
-如果没有 fresh context，Commander 可自行重跑 gate，但必须记录 `Verification independence: non-independent`。
+- 只把失败 ID、证据、最新 Spec Version 和允许修复范围交回 Maker。
+- Standard 默认一轮修复；Strict 默认最多两轮。超过预算必须说明策略为何值得继续，否则停止并交给用户。
+- 同一失败连续两轮没有可测量改善，立即停止。
+- 用户新输入到达时，先判断它是补充还是替换；发生规格变化时先执行 Phase 1 的版本切换，不让旧任务继续写入。
+- 依赖凭据、外部服务、主观选择或损坏环境时标记 `BLOCKED`，给出最小下一步。
 
 ## Phase 6: Commander 总验收
 
-Commander 抽查关键证据，确认状态文件与真实工作区一致，然后更新 Final Result：
+Commander 抽查关键证据并确认状态与真实工作区一致。最终报告包括：
 
-- 已完成范围；
-- 每项验收标准的最终状态；
-- 实际运行的检查及结果；
-- 残留风险与阻塞；
-- 使用的模型分工；
-- 验证是否真正独立；
-- 用户必须亲自查看的关键 diff、报告或感知样本。
-- Language Contract 是否在新增产物与回报中得到遵守。
+- 最终 Spec Version 和实际模式；
+- `USER` 要求逐项覆盖结果；
+- 已确认的 `DERIVED` 决策与明确非目标；
+- 各 AC 的 PASS / FAIL / BLOCKED、实际命令和证据等级；
+- 模型分工、验证独立性、环境 blocker 和残留风险；
+- 用户需要查看的关键 diff、迁移说明或感知样本。
 
-只有全部阻塞性标准通过时才能宣告完成。感知质量任务必须等待用户完成对应人工 gate；自动指标通过不能代替用户验收。
-
-记录本次流程的教训，但不要自行修改 Skill。只有用户明确要求改进技能时，才把经过验证且可泛化的经验回写。
+只有用户要求和全部阻塞 AC 都满足时才能宣告完成。记录可泛化教训，但只有用户明确要求更新技能时才修改本 Skill。
